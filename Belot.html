@@ -977,6 +977,7 @@ el('joinInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventD
 el('joinNew').addEventListener('click', ()=>{
   const code=Math.random().toString(36).slice(2,8);
   state.rounds=[];                 // fresh game
+  state.names=['Ние','Вие'];       // a new code means a new table, so new players too
   try{ store.save(state); }catch(e){}
   render();
   attachGame(code);
