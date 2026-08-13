@@ -541,8 +541,10 @@ const entry=el('entry');
 const totals=()=>state.rounds.reduce((t,r)=>[t[0]+r[0],t[1]+r[1]],[0,0]);
 
 function render(){
-  nameA.value=state.names[0];
-  nameB.value=state.names[1];
+  // never write into a name field while it is being edited — that would undo
+  // the user's typing (and stop them from clearing the field at all)
+  if(document.activeElement!==nameA) nameA.value=state.names[0];
+  if(document.activeElement!==nameB) nameB.value=state.names[1];
   labelA.textContent=state.names[0];
   labelB.textContent=state.names[1];
   const setTxt=(id,v)=>{const e=el(id); if(e) e.textContent=v;};
@@ -638,7 +640,9 @@ inB.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addRou
 [inA,inB].forEach(i=>i.addEventListener('focus',()=>i.select()));
 
 function bindName(input,idx){
-  input.addEventListener('input',()=>{ state.names[idx]=input.value||(idx?'Отбор 2':'Отбор 1'); labelA.textContent=state.names[0]; labelB.textContent=state.names[1]; render(); });
+  // while typing, keep exactly what was typed (including empty) so the field
+  // can be cleared; the default name is restored on blur if it is left blank
+  input.addEventListener('input',()=>{ state.names[idx]=input.value; render(); });
   input.addEventListener('blur',()=>{ if(!input.value.trim()){ state.names[idx]= idx? 'Вие':'Ние'; render(); } persist(); });
 }
 bindName(nameA,0); bindName(nameB,1);
