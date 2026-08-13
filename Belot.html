@@ -562,15 +562,14 @@ function render(){
   leadA.textContent = a>b ? '▲ води' : '';
   leadB.textContent = b>a ? '▲ води' : '';
 
-  // win detection: someone reached target
-  const aWin=a>=state.target, bWin=b>=state.target;
-  cardA.classList.toggle('win', aWin && a>=b);
-  cardB.classList.toggle('win', bWin && b>=a);
-  if(aWin||bWin){
-    let winnerIdx = a===b ? -1 : (a>b?0:1);
+  // win detection: someone reached target with a clear lead (a tie keeps playing)
+  const winnerIdx = (a!==b && (a>=state.target || b>=state.target)) ? (a>b?0:1) : -1;
+  cardA.classList.toggle('win', winnerIdx===0);
+  cardB.classList.toggle('win', winnerIdx===1);
+  if(winnerIdx!==-1){
     winbox.classList.add('show');
     entry.style.display='none';
-    winText.textContent = winnerIdx===-1 ? 'Равен резултат!' : (state.names[winnerIdx].toUpperCase()+' печели!');
+    winText.textContent = state.names[winnerIdx].toUpperCase()+' печели!';
   }else{
     winbox.classList.remove('show');
     entry.style.display='';
@@ -599,8 +598,8 @@ function persist(){ store.save(state); pushRemote(); }
 
 /* ---------- actions ---------- */
 function addRound(){
-  const a=parseInt(inA.value,10)||0;
-  const b=parseInt(inB.value,10)||0;
+  const a=Math.max(0, parseInt(inA.value,10)||0);
+  const b=Math.max(0, parseInt(inB.value,10)||0);
   if(a===0 && b===0){ inA.focus(); return; }
   state.rounds.push([a,b]);
   inA.value=''; inB.value='';
@@ -683,8 +682,8 @@ function closeEdit(){ editBg.classList.remove('show'); editIndex=null; }
 
 el('editSave').addEventListener('click', ()=>{
   if(editIndex===null) return;
-  const a=parseInt(editA.value,10)||0;
-  const b=parseInt(editB.value,10)||0;
+  const a=Math.max(0, parseInt(editA.value,10)||0);
+  const b=Math.max(0, parseInt(editB.value,10)||0);
   state.rounds[editIndex]=[a,b];
   closeEdit(); render(); persist();
 });
@@ -839,14 +838,16 @@ function recalc(){
 }
 
 el('addDetailBtn').addEventListener('click', ()=>{
-  const a=parseInt(finalA.value,10)||0;
-  const b=parseInt(finalB.value,10)||0;
+  const a=Math.max(0, parseInt(finalA.value,10)||0);
+  const b=Math.max(0, parseInt(finalB.value,10)||0);
   if(a===0 && b===0){ dCardA.focus(); return; }
   state.rounds.push([a,b]);
   // reset detailed inputs for next hand
   dCardA.value=''; dCardB.value=''; ann={A:0,B:0}; updateAnnDisplay();
   finalA.value=''; finalB.value='';
   capot='none'; [...el('capotPick').children].forEach(x=>x.classList.toggle('sel', x.dataset.c==='none'));
+  kontra=1; [...el('kontraPick').children].forEach(x=>x.classList.toggle('sel', x.dataset.k==='1'));
+  el('kontraShow').textContent='';
   render(); persist();
 });
 
@@ -872,7 +873,7 @@ function getGameId(){
   // 1) code in the URL wins (someone opened a shared link)
   let urlG=null;
   try{ urlG=new URL(location.href).searchParams.get('game'); }catch(e){}
-  if(urlG) return urlG;
+  if(urlG){ const clean=normCode(urlG); if(clean) return clean; }
   // 2) otherwise reuse the last code used on this device
   let stored=null;
   try{ stored=localStorage.getItem(GKEY); }catch(e){}
