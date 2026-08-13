@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="bg">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Белот · Брояч</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<style>
+  :root{
+    --felt:#0d3b2e;
+    --felt-2:#0a2e23;
+    --felt-line:#1c5341;
+    --ivory:#f4efe3;
+    --ivory-2:#e7dfcc;
+    --ink:#1c1b19;
+    --ink-soft:#5a5850;
+    --red:#b02a2f;
+    --red-bright:#c8383d;
+    --brass:#cba14b;
+    --muted:#7e968a;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+    background:
+      radial-gradient(120% 90% at 50% -10%, var(--felt-line) 0%, transparent 55%),
+      var(--felt);
+    color:var(--ivory);
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    padding:18px 14px 34px;
+  }
+  .wrap{width:100%;max-width:460px;}
+
+  /* Header */
+  header{
+    display:flex;align-items:baseline;justify-content:space-between;
+    padding:2px 4px 16px;
+  }
+  .brand{
+    font-family:'Oswald',sans-serif;font-weight:700;
+    letter-spacing:.14em;font-size:24px;text-transform:uppercase;
+  }
+  .brand .dot{color:var(--brass);}
+  .target-btn{
+    font-family:'Oswald',sans-serif;font-weight:500;
+    letter-spacing:.06em;font-size:13px;text-transform:uppercase;
+    color:var(--felt);background:var(--brass);
+    border:none;border-radius:999px;padding:7px 14px;
+    cursor:pointer;
+  }
+  .head-actions{display:flex;align-items:center;gap:8px;}
+  .share-btn{
+    font-family:'Inter',sans-serif;font-weight:600;font-size:12px;
+    color:var(--ivory);background:rgba(0,0,0,.2);border:1px solid var(--felt-line);
+    border-radius:999px;padding:7px 12px;cursor:pointer;white-space:nowrap;
+  }
+  .share-btn:active{background:rgba(0,0,0,.32);}
+  .sync-line{
+    text-align:right;font-size:11px;color:var(--muted);min-height:14px;
+    margin:-8px 4px 8px;letter-spacing:.02em;
+  }
+  .sync-line b{color:var(--brass);font-weight:600;}
+
+  /* Cards row */
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .card{
+    position:relative;background:var(--ivory);color:var(--ink);
+    border-radius:16px;padding:16px 12px 14px;
+    box-shadow:0 10px 24px rgba(0,0,0,.28), inset 0 0 0 1px rgba(0,0,0,.05);
+    overflow:hidden;transition:box-shadow .3s, transform .3s;
+  }
+  .card.win{
+    box-shadow:0 0 0 2px var(--brass), 0 12px 30px rgba(0,0,0,.35);
+  }
+  .card::before,.card::after{
+    position:absolute;font-size:14px;line-height:1;opacity:.5;
+    letter-spacing:-1px;
+  }
+  .card::before{content:attr(data-pip);top:9px;left:10px;}
+  .card::after{content:attr(data-pip);bottom:9px;right:10px;transform:rotate(180deg);}
+  .card.red::before,.card.red::after{color:var(--red);}
+  .card.black::before,.card.black::after{color:var(--ink);}
+
+  .name{
+    display:block;width:100%;text-align:center;border:none;background:transparent;
+    font-family:'Inter',sans-serif;font-weight:600;font-size:15px;color:var(--ink);
+    padding:2px 4px 4px;border-radius:6px;
+  }
+  .name:focus{outline:2px solid var(--brass);outline-offset:1px;}
+  .score{
+    font-family:'Oswald',sans-serif;font-weight:700;
+    text-align:center;line-height:.92;font-size:70px;
+    margin:4px 0 2px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;
+  }
+  .card.red .score{color:var(--red);}
+  .card.black .score{color:var(--ink);}
+  .progress{height:4px;border-radius:999px;background:var(--ivory-2);overflow:hidden;margin-top:6px;}
+  .progress > i{display:block;height:100%;background:var(--brass);width:0;transition:width .4s;}
+  .lead{
+    text-align:center;font-size:11px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--ink-soft);height:14px;margin-top:6px;font-weight:600;
+  }
+  .ribbon{
+    display:none;position:absolute;top:12px;right:-34px;transform:rotate(45deg);
+    background:var(--brass);color:var(--felt);font-family:'Oswald',sans-serif;
+    font-weight:700;font-size:12px;letter-spacing:.1em;padding:4px 40px;text-transform:uppercase;
+  }
+  .card.win .ribbon{display:block;}
+
+  /* Entry */
+  .entry{
+    margin-top:18px;background:rgba(0,0,0,.16);border:1px solid var(--felt-line);
+    border-radius:16px;padding:14px 14px 16px;
+  }
+  .entry h2{
+    margin:0 0 12px;font-family:'Oswald',sans-serif;font-weight:500;
+    font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  }
+  .inputs{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .field label{
+    display:block;font-size:12px;color:var(--muted);margin-bottom:5px;
+    text-align:center;font-weight:500;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .field input{
+    width:100%;text-align:center;font-family:'Oswald',sans-serif;font-weight:600;
+    font-size:30px;padding:8px 4px;border-radius:12px;border:none;
+    background:var(--ivory);color:var(--ink);font-variant-numeric:tabular-nums;
+  }
+  .field input:focus{outline:2px solid var(--brass);outline-offset:1px;}
+  .add{
+    width:100%;margin-top:12px;border:none;border-radius:12px;
+    background:var(--red);color:#fff;font-family:'Oswald',sans-serif;font-weight:600;
+    font-size:17px;letter-spacing:.06em;text-transform:uppercase;padding:14px;cursor:pointer;
+    transition:background .15s, transform .05s;
+  }
+  .add:active{transform:translateY(1px);background:var(--red-bright);}
+  .hint{margin:9px 2px 0;font-size:11px;color:var(--muted);text-align:center;line-height:1.4;}
+
+  /* Mode toggle + detailed panel */
+  .mode-toggle{display:flex;gap:4px;background:rgba(0,0,0,.22);border-radius:999px;padding:4px;margin-bottom:14px;}
+  .mt-btn{
+    flex:1;border:none;background:transparent;color:var(--muted);cursor:pointer;
+    font-family:'Oswald',sans-serif;font-weight:500;letter-spacing:.06em;text-transform:uppercase;
+    font-size:13px;padding:9px;border-radius:999px;transition:background .15s,color .15s;
+  }
+  .mt-btn.active{background:var(--ivory);color:var(--felt);font-weight:600;}
+  .entry h2{margin:0 0 10px;font-family:'Oswald',sans-serif;font-weight:500;font-size:13px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);}
+  .entry h2.mt16{margin-top:18px;}
+  .entry h2 .tsum{font-size:10px;letter-spacing:.06em;color:var(--muted);opacity:.8;text-transform:none;}
+  .gtypes{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+  .gt{
+    border:1px solid var(--felt-line);background:rgba(0,0,0,.14);color:var(--ivory);cursor:pointer;
+    font-family:'Oswald',sans-serif;font-weight:500;font-size:14px;padding:11px 4px;border-radius:11px;
+    transition:background .15s,border-color .15s;
+  }
+  .gt.active{background:var(--ivory);color:var(--felt);border-color:var(--ivory);font-weight:600;}
+  .mult-row{display:flex;align-items:center;justify-content:space-between;margin-top:12px;}
+  .mult-row > span{font-size:12px;color:var(--muted);font-weight:500;}
+  .mult-pick{display:flex;gap:5px;}
+  .mult-pick button{
+    border:1px solid var(--felt-line);background:rgba(0,0,0,.14);color:var(--ivory);cursor:pointer;
+    font-family:'Oswald',sans-serif;font-size:13px;padding:7px 11px;border-radius:9px;min-width:40px;
+  }
+  .mult-pick button.sel{background:var(--brass);color:var(--felt);border-color:var(--brass);font-weight:600;}
+  .ann{margin-top:14px;background:rgba(0,0,0,.14);border:1px solid var(--felt-line);border-radius:13px;padding:11px;}
+  .ann-head{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted);margin-bottom:9px;}
+  .ann-head b{color:var(--ivory);font-weight:600;font-family:'Inter',sans-serif;}
+  .ann-sum{font-family:'Oswald',sans-serif;font-weight:600;color:var(--brass);font-size:15px;}
+  .ann-clear{margin-left:auto;border:none;background:transparent;color:var(--muted);cursor:pointer;font-size:11px;text-decoration:underline;font-family:'Inter',sans-serif;}
+  .ann-chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .ann-chips button{
+    border:1px solid var(--felt-line);background:var(--ivory);color:var(--ink);cursor:pointer;
+    font-family:'Inter',sans-serif;font-weight:500;font-size:12px;padding:7px 10px;border-radius:9px;
+  }
+  .ann-chips button:active{background:var(--brass);}
+  .calc{margin-top:16px;background:rgba(0,0,0,.2);border-radius:13px;padding:12px;}
+  .calc-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px;font-size:12px;color:var(--muted);}
+  .calc-row b{font-family:'Oswald',sans-serif;font-weight:600;color:var(--ivory);font-size:16px;font-variant-numeric:tabular-nums;}
+  .calc .field input{font-size:26px;padding:8px 4px;}
+
+  /* Win state box */
+  .winbox{
+    margin-top:18px;background:var(--brass);color:var(--felt);border-radius:16px;
+    padding:16px;text-align:center;display:none;
+  }
+  .winbox.show{display:block;}
+  .winbox b{font-family:'Oswald',sans-serif;font-size:20px;letter-spacing:.02em;display:block;text-transform:uppercase;}
+  .winbox button{
+    margin-top:12px;border:none;background:var(--felt);color:var(--ivory);
+    font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+    border-radius:10px;padding:11px 20px;font-size:14px;cursor:pointer;
+  }
+
+  /* History */
+  .hist{margin-top:20px;}
+  .hist-head{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:0 4px 8px;
+  }
+  .hist-head h2{
+    margin:0;font-family:'Oswald',sans-serif;font-weight:500;font-size:13px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--muted);
+  }
+  .actions{display:flex;gap:8px;}
+  .ghost{
+    border:1px solid var(--felt-line);background:transparent;color:var(--ivory);
+    font-family:'Inter',sans-serif;font-weight:500;font-size:12px;
+    border-radius:999px;padding:6px 13px;cursor:pointer;
+  }
+  .ghost:active{background:rgba(255,255,255,.06);}
+  .ghost.danger{color:#f0b8ba;border-color:#5e2f31;}
+  .hist-note{margin:0 4px 10px;font-size:11px;color:var(--muted);}
+  .rows{list-style:none;margin:0;padding:0;}
+  .row{
+    display:grid;grid-template-columns:auto 1fr 1fr auto;align-items:center;gap:8px;
+    padding:11px 12px;border-radius:11px;background:rgba(0,0,0,.14);margin-bottom:7px;
+    cursor:pointer;transition:background .12s;
+  }
+  .row:active{background:rgba(0,0,0,.26);}
+  .row .edit-mark{color:var(--muted);font-size:14px;opacity:.7;}
+  .row .n{
+    font-family:'Oswald',sans-serif;font-size:12px;color:var(--muted);
+    letter-spacing:.06em;white-space:nowrap;
+  }
+  .row .v{
+    font-family:'Oswald',sans-serif;font-weight:600;font-size:17px;text-align:center;
+    font-variant-numeric:tabular-nums;
+  }
+  .row .v.a{color:var(--ivory);}
+  .row .v.b{color:var(--ivory);}
+  .row .v small{font-size:11px;color:var(--muted);font-weight:400;}
+  .empty{
+    text-align:center;color:var(--muted);font-size:13px;padding:22px 10px;line-height:1.5;
+  }
+
+  /* Target dialog */
+  .sheet-bg{
+    position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;
+    align-items:flex-end;justify-content:center;z-index:20;
+  }
+  .sheet-bg.show{display:flex;}
+  .sheet{
+    background:var(--ivory);color:var(--ink);width:100%;max-width:460px;
+    border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));
+  }
+  .sheet h3{margin:2px 0 14px;font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:16px;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;}
+  .chip{
+    border:1px solid var(--ivory-2);background:#fff;color:var(--ink);
+    font-family:'Oswald',sans-serif;font-weight:600;font-size:16px;
+    border-radius:10px;padding:11px 16px;cursor:pointer;flex:1 1 60px;
+  }
+  .chip.sel{background:var(--felt);color:var(--ivory);border-color:var(--felt);}
+  .sheet .custom{display:flex;gap:8px;margin-top:12px;}
+  .sheet .custom input{
+    flex:1;border:1px solid var(--ivory-2);border-radius:10px;padding:11px;
+    font-family:'Oswald',sans-serif;font-size:16px;text-align:center;
+  }
+  .sheet .close{
+    width:100%;margin-top:14px;border:none;border-radius:11px;background:var(--felt);
+    color:var(--ivory);font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:.06em;
+    text-transform:uppercase;padding:13px;font-size:15px;cursor:pointer;
+  }
+  .edit-inputs{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+  .edit-inputs .field label{color:var(--ink-soft);}
+  .edit-inputs .field input{
+    width:100%;text-align:center;font-family:'Oswald',sans-serif;font-weight:600;
+    font-size:30px;padding:9px 4px;border-radius:12px;border:1px solid var(--ivory-2);
+    background:#fff;color:var(--ink);font-variant-numeric:tabular-nums;
+  }
+  .edit-inputs .field input:focus{outline:2px solid var(--brass);outline-offset:1px;}
+  .sheet-del{
+    width:100%;margin-top:9px;border:1px solid #e0b7b9;border-radius:11px;background:#fff;
+    color:var(--red);font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:.05em;
+    text-transform:uppercase;padding:12px;font-size:14px;cursor:pointer;
+  }
+  .sheet-del.armed{background:var(--red);color:#fff;border-color:var(--red);}
+  .sheet-cancel{
+    width:100%;margin-top:9px;border:none;background:transparent;color:var(--ink-soft);
+    font-family:'Inter',sans-serif;font-weight:500;font-size:14px;padding:8px;cursor:pointer;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand">Белот<span class="dot">.</span></div>
+    <div class="head-actions">
+      <button class="share-btn" id="shareBtn" title="Сподели играта">🔗 Сподели</button>
+      <button class="target-btn" id="targetBtn">до 151</button>
+    </div>
+  </header>
+  <div class="sync-line" id="syncLine"></div>
+
+  <div class="cards">
+    <div class="card black" id="cardA" data-pip="♠ ♣">
+      <span class="ribbon">Победа</span>
+      <input class="name" id="nameA" value="Ние" maxlength="14" aria-label="Име на отбор 1">
+      <div class="score" id="scoreA">0</div>
+      <div class="progress"><i id="progA"></i></div>
+      <div class="lead" id="leadA"></div>
+    </div>
+    <div class="card red" id="cardB" data-pip="♥ ♦">
+      <span class="ribbon">Победа</span>
+      <input class="name" id="nameB" value="Вие" maxlength="14" aria-label="Име на отбор 2">
+      <div class="score" id="scoreB">0</div>
+      <div class="progress"><i id="progB"></i></div>
+      <div class="lead" id="leadB"></div>
+    </div>
+  </div>
+
+  <section class="entry" id="entry">
+    <div class="mode-toggle" id="modeToggle">
+      <button class="mt-btn active" data-mode="quick">Бързо</button>
+      <button class="mt-btn" data-mode="detail">Подробно</button>
+    </div>
+
+    <!-- QUICK MODE -->
+    <div class="pane" id="paneQuick">
+      <div class="inputs">
+        <div class="field">
+          <label id="labelA">Ние</label>
+          <input id="inA" inputmode="numeric" pattern="[0-9]*" placeholder="0">
+        </div>
+        <div class="field">
+          <label id="labelB">Вие</label>
+          <input id="inB" inputmode="numeric" pattern="[0-9]*" placeholder="0">
+        </div>
+      </div>
+      <button class="add" id="addBtn">Добави точките</button>
+      <p class="hint">Пълна ръка без обявки прави 162 (152 + 10 за последната ръка). Обявките се прибавят отгоре.</p>
+    </div>
+
+    <!-- DETAILED MODE -->
+    <div class="pane" id="paneDetail" style="display:none;">
+      <h2>Вид игра</h2>
+      <div class="gtypes" id="gtypes">
+        <button class="gt active" data-g="coz" data-total="162">Боя</button>
+        <button class="gt" data-g="nt" data-total="130">Без коз</button>
+        <button class="gt" data-g="at" data-total="258">Всичко коз</button>
+      </div>
+      <div class="mult-row">
+        <span>Залог</span>
+        <div class="mult-pick" id="kontraPick">
+          <button data-k="1" class="sel">Нормално</button><button data-k="2">Контра</button><button data-k="4">Реконтра</button>
+        </div>
+      </div>
+
+      <h2 class="mt16">Точки от ръцете <small class="tsum">сборът е <span id="tsumVal">162</span></small></h2>
+      <div class="inputs">
+        <div class="field">
+          <label id="dLabelA">Ние</label>
+          <input id="dCardA" inputmode="numeric" pattern="[0-9]*" placeholder="0">
+        </div>
+        <div class="field">
+          <label id="dLabelB">Вие</label>
+          <input id="dCardB" inputmode="numeric" pattern="[0-9]*" placeholder="0">
+        </div>
+      </div>
+      <p class="hint" style="margin-top:8px;">Въведи точките на единия отбор — другите се смятат сами (сборът минус въведеното).</p>
+
+      <div class="mult-row" style="margin-top:12px;">
+        <span>Капо (всички ръце)</span>
+        <div class="mult-pick" id="capotPick">
+          <button data-c="none" class="sel">Няма</button>
+          <button data-c="A" id="capA">Ние</button>
+          <button data-c="B" id="capB">Вие</button>
+        </div>
+      </div>
+
+      <div class="ann">
+        <div class="ann-head"><b id="annNameA">Ние</b> · обявки <span class="ann-sum" id="annSumA">0</span><button class="ann-clear" data-side="A">нулирай</button></div>
+        <div class="ann-chips" data-side="A">
+          <button data-v="20">Терца +20</button>
+          <button data-v="50">Петдесет +50</button>
+          <button data-v="100">Сто +100</button>
+          <button data-v="20">Белот +20</button>
+          <button data-v="100">Каре +100</button>
+          <button data-v="150">Каре 9 +150</button>
+          <button data-v="200">Каре вале +200</button>
+        </div>
+      </div>
+
+      <div class="ann">
+        <div class="ann-head"><b id="annNameB">Вие</b> · обявки <span class="ann-sum" id="annSumB">0</span><button class="ann-clear" data-side="B">нулирай</button></div>
+        <div class="ann-chips" data-side="B">
+          <button data-v="20">Терца +20</button>
+          <button data-v="50">Петдесет +50</button>
+          <button data-v="100">Сто +100</button>
+          <button data-v="20">Белот +20</button>
+          <button data-v="100">Каре +100</button>
+          <button data-v="150">Каре 9 +150</button>
+          <button data-v="200">Каре вале +200</button>
+        </div>
+      </div>
+
+      <div class="calc">
+        <div class="calc-row"><span>Преди закръгляне</span><b><span id="rawA">0</span> / <span id="rawB">0</span></b></div>
+        <div class="calc-row"><span>Финал в десетици (÷10)<i id="kontraShow"></i></span></div>
+        <div class="inputs">
+          <div class="field">
+            <label id="fLabelA">Ние</label>
+            <input id="finalA" inputmode="numeric" pattern="[0-9]*" placeholder="0">
+          </div>
+          <div class="field">
+            <label id="fLabelB">Вие</label>
+            <input id="finalB" inputmode="numeric" pattern="[0-9]*" placeholder="0">
+          </div>
+        </div>
+      </div>
+      <button class="add" id="addDetailBtn">Добави ръката</button>
+      <p class="hint">Финалните числа може да коригираш ръчно според вашите правила за закръгляне и „вътре“.</p>
+    </div>
+  </section>
+
+  <div class="winbox" id="winbox">
+    <b id="winText">Победа!</b>
+    <button id="newFromWin">Нова игра</button>
+  </div>
+
+  <section class="hist">
+    <div class="hist-head">
+      <h2>История</h2>
+      <div class="actions">
+        <button class="ghost" id="undoBtn">Отмени</button>
+        <button class="ghost danger" id="resetBtn">Нова игра</button>
+      </div>
+    </div>
+    <p class="hist-note" id="histNote">Докосни ръка, за да я поправиш или изтриеш.</p>
+    <ul class="rows" id="rows"></ul>
+    <div class="empty" id="empty">Още няма записани ръце.<br>Добави точките след първото раздаване.</div>
+  </section>
+</div>
+
+<!-- Target sheet -->
+<div class="sheet-bg" id="sheetBg">
+  <div class="sheet">
+    <h3>Игра до колко точки?</h3>
+    <div class="chips" id="chips">
+      <button class="chip" data-t="101">101</button>
+      <button class="chip" data-t="151">151</button>
+      <button class="chip" data-t="501">501</button>
+      <button class="chip" data-t="1001">1001</button>
+    </div>
+    <div class="custom">
+      <input id="customTarget" inputmode="numeric" pattern="[0-9]*" placeholder="Друго число">
+      <button class="chip" id="customSet" style="flex:0 0 auto;">Задай</button>
+    </div>
+    <button class="close" id="sheetClose">Готово</button>
+  </div>
+</div>
+
+<!-- Edit round sheet -->
+<div class="sheet-bg" id="editBg">
+  <div class="sheet">
+    <h3 id="editTitle">Поправи ръка</h3>
+    <div class="edit-inputs">
+      <div class="field">
+        <label id="editLabelA">Ние</label>
+        <input id="editA" inputmode="numeric" pattern="[0-9]*" placeholder="0">
+      </div>
+      <div class="field">
+        <label id="editLabelB">Вие</label>
+        <input id="editB" inputmode="numeric" pattern="[0-9]*" placeholder="0">
+      </div>
+    </div>
+    <button class="close" id="editSave">Запази промените</button>
+    <button class="sheet-del" id="editDelete">Изтрий тази ръка</button>
+    <button class="sheet-cancel" id="editCancel">Отказ</button>
+  </div>
+</div>
+
+<!-- Share / join game sheet -->
+<div class="sheet-bg" id="joinBg">
+  <div class="sheet">
+    <h3>Споделена игра</h3>
+    <p style="margin:0 0 12px;font-size:14px;color:var(--ink-soft);">Код на текущата игра: <b id="joinCurrent" style="color:var(--ink);font-family:'Oswald',sans-serif;font-size:18px;letter-spacing:.05em;">—</b></p>
+    <button class="close" id="joinCopy">Копирай за споделяне</button>
+    <div class="custom" style="margin-top:14px;">
+      <input id="joinInput" inputmode="text" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="код за влизане">
+      <button class="chip" id="joinGo" style="flex:0 0 auto;">Влез</button>
+    </div>
+    <p style="margin:8px 2px 0;font-size:11px;color:var(--ink-soft);">Всички с този код виждат едни и същи точки на живо.</p>
+    <button class="sheet-del" id="joinNew" style="color:var(--felt);border-color:var(--ivory-2);">Нова игра (нов код)</button>
+    <button class="sheet-cancel" id="joinClose">Затвори</button>
+  </div>
+</div>
+
+<script>
+/* ---------- persistent storage (graceful fallback) ---------- */
+const KEY='belot:game';
+const GKEY='belot:gameId';
+const store={
+  async load(){
+    // 1) Claude artifact storage (when opened inside Claude)
+    try{
+      if(typeof window.storage!=='undefined'){
+        const r=await window.storage.get(KEY);
+        if(r&&r.value) return JSON.parse(r.value);
+      }
+    }catch(e){/* ignore */}
+    // 2) browser storage (works when the file is opened in a real browser)
+    try{
+      const v=localStorage.getItem(KEY);
+      if(v) return JSON.parse(v);
+    }catch(e){/* ignore */}
+    return null;
+  },
+  async save(state){
+    const data=JSON.stringify(state);
+    try{ if(typeof window.storage!=='undefined') await window.storage.set(KEY, data); }catch(e){}
+    try{ localStorage.setItem(KEY, data); }catch(e){}
+  }
+};
+
+/* ---------- state ---------- */
+let state={ names:['Ние','Вие'], target:151, rounds:[] };
+
+/* ---------- elements ---------- */
+const el=id=>document.getElementById(id);
+const scoreA=el('scoreA'), scoreB=el('scoreB');
+const progA=el('progA'), progB=el('progB');
+const leadA=el('leadA'), leadB=el('leadB');
+const cardA=el('cardA'), cardB=el('cardB');
+const nameA=el('nameA'), nameB=el('nameB');
+const labelA=el('labelA'), labelB=el('labelB');
+const inA=el('inA'), inB=el('inB');
+const rows=el('rows'), empty=el('empty');
+const targetBtn=el('targetBtn'), winbox=el('winbox'), winText=el('winText');
+const entry=el('entry');
+
+/* ---------- helpers ---------- */
+const totals=()=>state.rounds.reduce((t,r)=>[t[0]+r[0],t[1]+r[1]],[0,0]);
+
+function render(){
+  nameA.value=state.names[0];
+  nameB.value=state.names[1];
+  labelA.textContent=state.names[0];
+  labelB.textContent=state.names[1];
+  const setTxt=(id,v)=>{const e=el(id); if(e) e.textContent=v;};
+  setTxt('dLabelA',state.names[0]); setTxt('dLabelB',state.names[1]);
+  setTxt('annNameA',state.names[0]); setTxt('annNameB',state.names[1]);
+  setTxt('fLabelA',state.names[0]); setTxt('fLabelB',state.names[1]);
+  setTxt('capA',state.names[0]); setTxt('capB',state.names[1]);
+  targetBtn.textContent='до '+state.target;
+
+  const [a,b]=totals();
+  scoreA.textContent=a;
+  scoreB.textContent=b;
+  progA.style.width=Math.min(100,a/state.target*100)+'%';
+  progB.style.width=Math.min(100,b/state.target*100)+'%';
+
+  // lead indicator
+  leadA.textContent = a>b ? '▲ води' : '';
+  leadB.textContent = b>a ? '▲ води' : '';
+
+  // win detection: someone reached target
+  const aWin=a>=state.target, bWin=b>=state.target;
+  cardA.classList.toggle('win', aWin && a>=b);
+  cardB.classList.toggle('win', bWin && b>=a);
+  if(aWin||bWin){
+    let winnerIdx = a===b ? -1 : (a>b?0:1);
+    winbox.classList.add('show');
+    entry.style.display='none';
+    winText.textContent = winnerIdx===-1 ? 'Равен резултат!' : (state.names[winnerIdx].toUpperCase()+' печели!');
+  }else{
+    winbox.classList.remove('show');
+    entry.style.display='';
+  }
+
+  // history (newest first)
+  rows.innerHTML='';
+  if(state.rounds.length===0){ empty.style.display=''; }
+  else{
+    empty.style.display='none';
+    state.rounds.forEach((r,i)=>{
+      const li=document.createElement('li');
+      li.className='row';
+      li.dataset.i=i;
+      li.innerHTML=`<span class="n">Ръка ${i+1}</span>
+        <span class="v a">${r[0]||0} <small>${escapeHtml(state.names[0])}</small></span>
+        <span class="v b">${r[1]||0} <small>${escapeHtml(state.names[1])}</small></span>
+        <span class="edit-mark">✎</span>`;
+      li.addEventListener('click', ()=>openEdit(i));
+      rows.prepend(li);
+    });
+  }
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+function persist(){ store.save(state); pushRemote(); }
+
+/* ---------- actions ---------- */
+function addRound(){
+  const a=parseInt(inA.value,10)||0;
+  const b=parseInt(inB.value,10)||0;
+  if(a===0 && b===0){ inA.focus(); return; }
+  state.rounds.push([a,b]);
+  inA.value=''; inB.value='';
+  render(); persist();
+}
+function undo(){
+  if(state.rounds.length===0) return;
+  state.rounds.pop();
+  render(); persist();
+}
+function newGame(){
+  state.rounds=[];
+  render(); persist();
+}
+
+/* ---------- events ---------- */
+el('addBtn').addEventListener('click', addRound);
+el('undoBtn').addEventListener('click', undo);
+let resetArmed=false, resetTimer=null;
+const resetBtn=el('resetBtn');
+resetBtn.addEventListener('click', ()=>{
+  if(state.rounds.length===0){ return; }
+  if(!resetArmed){
+    resetArmed=true;
+    resetBtn.textContent='Сигурен ли си?';
+    resetTimer=setTimeout(()=>{ resetArmed=false; resetBtn.textContent='Нова игра'; },2500);
+    return;
+  }
+  clearTimeout(resetTimer); resetArmed=false; resetBtn.textContent='Нова игра';
+  newGame();
+});
+el('newFromWin').addEventListener('click', newGame);
+
+inA.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inB.focus();}});
+inB.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addRound();inA.focus();}});
+[inA,inB].forEach(i=>i.addEventListener('focus',()=>i.select()));
+
+function bindName(input,idx){
+  input.addEventListener('input',()=>{ state.names[idx]=input.value||(idx?'Отбор 2':'Отбор 1'); labelA.textContent=state.names[0]; labelB.textContent=state.names[1]; render(); });
+  input.addEventListener('blur',()=>{ if(!input.value.trim()){ state.names[idx]= idx? 'Вие':'Ние'; render(); } persist(); });
+}
+bindName(nameA,0); bindName(nameB,1);
+
+/* ---------- target sheet ---------- */
+const sheetBg=el('sheetBg'), chips=el('chips');
+function openSheet(){ markChips(); sheetBg.classList.add('show'); }
+function closeSheet(){ sheetBg.classList.add? sheetBg.classList.remove('show'):0; }
+function markChips(){
+  [...chips.children].forEach(c=>c.classList.toggle('sel', +c.dataset.t===state.target));
+}
+targetBtn.addEventListener('click', openSheet);
+el('sheetClose').addEventListener('click', ()=>sheetBg.classList.remove('show'));
+sheetBg.addEventListener('click', e=>{ if(e.target===sheetBg) sheetBg.classList.remove('show'); });
+chips.addEventListener('click', e=>{
+  const b=e.target.closest('.chip'); if(!b) return;
+  state.target=+b.dataset.t; markChips(); render(); persist();
+});
+el('customSet').addEventListener('click', ()=>{
+  const v=parseInt(el('customTarget').value,10);
+  if(v&&v>0){ state.target=v; el('customTarget').value=''; markChips(); render(); persist(); sheetBg.classList.remove('show'); }
+});
+
+/* ---------- edit round sheet ---------- */
+const editBg=el('editBg'), editA=el('editA'), editB=el('editB');
+let editIndex=null;
+
+function openEdit(i){
+  editIndex=i;
+  const r=state.rounds[i];
+  el('editTitle').textContent='Поправи ръка '+(i+1);
+  el('editLabelA').textContent=state.names[0];
+  el('editLabelB').textContent=state.names[1];
+  editA.value=r[0]||0;
+  editB.value=r[1]||0;
+  editBg.classList.add('show');
+  resetDelBtn();
+  setTimeout(()=>{ editA.focus(); editA.select(); },50);
+}
+function closeEdit(){ editBg.classList.remove('show'); editIndex=null; }
+
+el('editSave').addEventListener('click', ()=>{
+  if(editIndex===null) return;
+  const a=parseInt(editA.value,10)||0;
+  const b=parseInt(editB.value,10)||0;
+  state.rounds[editIndex]=[a,b];
+  closeEdit(); render(); persist();
+});
+let delArmed=false;
+const delBtn=el('editDelete');
+function resetDelBtn(){ delArmed=false; delBtn.textContent='Изтрий тази ръка'; delBtn.classList.remove('armed'); }
+delBtn.addEventListener('click', ()=>{
+  if(editIndex===null) return;
+  if(!delArmed){
+    delArmed=true;
+    delBtn.textContent='Докосни пак за изтриване';
+    delBtn.classList.add('armed');
+    return;
+  }
+  state.rounds.splice(editIndex,1);
+  closeEdit(); render(); persist();
+});
+el('editCancel').addEventListener('click', closeEdit);
+editBg.addEventListener('click', e=>{ if(e.target===editBg) closeEdit(); });
+editA.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();editB.focus();editB.select();}});
+editB.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();el('editSave').click();}});
+[editA,editB].forEach(i=>i.addEventListener('focus',()=>i.select()));
+
+/* ---------- detailed mode ---------- */
+let cardTotal=162;          // sum of both teams' card points for current game type
+let gType='coz';            // 'coz' | 'nt' | 'at'
+let kontra=1;               // 1 normal · 2 контра · 4 реконтра (applied after rounding)
+let capot='none';           // 'none' | 'A' | 'B' — team that took all tricks (+9)
+let ann={A:0,B:0};          // announcement sums per team
+let lastCardEdited='A';     // which card field the user typed in last
+
+const dCardA=el('dCardA'), dCardB=el('dCardB');
+const finalA=el('finalA'), finalB=el('finalB');
+
+// mode toggle
+el('modeToggle').addEventListener('click', e=>{
+  const b=e.target.closest('.mt-btn'); if(!b) return;
+  [...el('modeToggle').children].forEach(x=>x.classList.toggle('active', x===b));
+  const detail = b.dataset.mode==='detail';
+  el('paneQuick').style.display = detail?'none':'';
+  el('paneDetail').style.display = detail?'':'none';
+});
+
+// game type sets the total (Боя 162 · Без коз 130 · Всичко коз 258)
+el('gtypes').addEventListener('click', e=>{
+  const b=e.target.closest('.gt'); if(!b) return;
+  [...el('gtypes').children].forEach(x=>x.classList.toggle('active', x===b));
+  cardTotal = +b.dataset.total;
+  gType = b.dataset.g;
+  el('tsumVal').textContent = cardTotal;
+  // re-derive the complement based on whichever field was last typed
+  if(capot!=='none') applyCapot(); else reComplement();
+  recalc();
+});
+// контра / реконтра picker (multiplies the final rounded result)
+el('kontraPick').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  kontra=+b.dataset.k;
+  [...el('kontraPick').children].forEach(x=>x.classList.toggle('sel', x===b));
+  el('kontraShow').textContent = kontra>1 ? (' · '+(kontra===2?'контра':'реконтра')+' ×'+kontra) : '';
+  recalc();
+});
+// капо picker (winner takes all card points, +9 bonus)
+el('capotPick').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  capot=b.dataset.c;
+  [...el('capotPick').children].forEach(x=>x.classList.toggle('sel', x===b));
+  applyCapot();
+  recalc();
+});
+function applyCapot(){
+  // fill full card points for the capot team, 0 for the other
+  if(capot==='A'){ dCardA.value=cardTotal; dCardB.value=0; lastCardEdited='A'; }
+  else if(capot==='B'){ dCardB.value=cardTotal; dCardA.value=0; lastCardEdited='B'; }
+}
+
+// card points auto-complement (one team → total − it)
+function clampCard(v){ v=parseInt(v,10); if(isNaN(v)) return null; return Math.max(0,Math.min(cardTotal,v)); }
+function reComplement(){
+  if(lastCardEdited==='B'){
+    const v=clampCard(dCardB.value);
+    if(v!==null){ dCardB.value=v; dCardA.value=cardTotal-v; }
+  }else{
+    const v=clampCard(dCardA.value);
+    if(v!==null){ dCardA.value=v; dCardB.value=cardTotal-v; }
+  }
+  recalc();
+}
+dCardA.addEventListener('input', ()=>{
+  clearCapot();
+  lastCardEdited='A';
+  const v=clampCard(dCardA.value);
+  dCardB.value = v===null ? '' : (cardTotal - v);
+  recalc();
+});
+dCardB.addEventListener('input', ()=>{
+  clearCapot();
+  lastCardEdited='B';
+  const v=clampCard(dCardB.value);
+  dCardA.value = v===null ? '' : (cardTotal - v);
+  recalc();
+});
+function clearCapot(){
+  if(capot==='none') return;
+  capot='none';
+  [...el('capotPick').children].forEach(x=>x.classList.toggle('sel', x.dataset.c==='none'));
+}
+[dCardA,dCardB,finalA,finalB].forEach(i=>i.addEventListener('focus',()=>i.select()));
+
+// announcement chips
+document.querySelectorAll('.ann-chips').forEach(box=>{
+  box.addEventListener('click', e=>{
+    const b=e.target.closest('button'); if(!b) return;
+    const side=box.dataset.side;
+    ann[side]+= (+b.dataset.v);
+    updateAnnDisplay(); recalc();
+  });
+});
+document.querySelectorAll('.ann-clear').forEach(btn=>{
+  btn.addEventListener('click', ()=>{ ann[btn.dataset.side]=0; updateAnnDisplay(); recalc(); });
+});
+function updateAnnDisplay(){ el('annSumA').textContent=ann.A; el('annSumB').textContent=ann.B; }
+
+// rounding threshold per game type: units >= T round up, else down.
+// Боя: 6-and-up · Всичко коз: 4-and-up · Без коз: 5-and-up (default)
+const THRESH = { coz:6, nt:5, at:4 };
+function roundHand(a,b){
+  const T = THRESH[gType] ?? 5;
+  const up=x=>Math.ceil(x/10), down=x=>Math.floor(x/10);
+  const ua=((a%10)+10)%10, ub=((b%10)+10)%10;
+  // tie: both land exactly on the boundary digit -> only the team with fewer points rounds up
+  if(ua===T && ub===T){
+    return a<=b ? [up(a),down(b)] : [down(a),up(b)];
+  }
+  return [ ua>=T?up(a):down(a), ub>=T?up(b):down(b) ];
+}
+function recalc(){
+  const ca = clampCard(dCardA.value) ?? 0;
+  const cb = clampCard(dCardB.value) ?? 0;
+  let rA = ca + ann.A, rB = cb + ann.B;
+  // Без коз: точките се удвояват ПРЕДИ закръгляне
+  if(gType==='nt'){ rA*=2; rB*=2; }
+  el('rawA').textContent = rA;
+  el('rawB').textContent = rB;
+  let [tA,tB] = roundHand(rA, rB);
+  // Капо: +9 към десетиците на печелившия отбор
+  if(capot==='A') tA+=9;
+  if(capot==='B') tB+=9;
+  // Контра/реконтра умножават КРАЙНИЯ закръглен резултат
+  finalA.value = tA * kontra;
+  finalB.value = tB * kontra;
+}
+
+el('addDetailBtn').addEventListener('click', ()=>{
+  const a=parseInt(finalA.value,10)||0;
+  const b=parseInt(finalB.value,10)||0;
+  if(a===0 && b===0){ dCardA.focus(); return; }
+  state.rounds.push([a,b]);
+  // reset detailed inputs for next hand
+  dCardA.value=''; dCardB.value=''; ann={A:0,B:0}; updateAnnDisplay();
+  finalA.value=''; finalB.value='';
+  capot='none'; [...el('capotPick').children].forEach(x=>x.classList.toggle('sel', x.dataset.c==='none'));
+  render(); persist();
+});
+
+/* ---------- Firebase realtime sync ---------- */
+const firebaseConfig = {
+  apiKey: "AIzaSyBTY91N6PlpxdjmHu4bnCKoiaBFx2nroXg",
+  authDomain: "belotscore.firebaseapp.com",
+  databaseURL: "https://belotscore-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "belotscore",
+  storageBucket: "belotscore.firebasestorage.app",
+  messagingSenderId: "652842367588",
+  appId: "1:652842367588:web:8f3910844b8bdcfeb9fd71"
+};
+let fbdb=null, gameRef=null, gameId=null, applyingRemote=false, synced=false;
+try{
+  if(typeof firebase!=='undefined'){
+    firebase.initializeApp(firebaseConfig);
+    fbdb=firebase.database();
+  }
+}catch(e){ fbdb=null; }
+
+function getGameId(){
+  // 1) code in the URL wins (someone opened a shared link)
+  let urlG=null;
+  try{ urlG=new URL(location.href).searchParams.get('game'); }catch(e){}
+  if(urlG) return urlG;
+  // 2) otherwise reuse the last code used on this device
+  let stored=null;
+  try{ stored=localStorage.getItem(GKEY); }catch(e){}
+  const g = stored || Math.random().toString(36).slice(2,8);
+  try{ const u=new URL(location.href); u.searchParams.set('game',g); history.replaceState(null,'',u.toString()); }catch(e){}
+  return g;
+}
+
+function setSyncLine(){
+  const el2=el('syncLine');
+  if(!fbdb){ el2.innerHTML='офлайн · без споделяне'; return; }
+  if(synced && gameId){ el2.innerHTML='на живо · игра <b>'+gameId+'</b>'; }
+  else if(gameId){ el2.innerHTML='свързване…'; }
+}
+
+function pushRemote(){
+  if(!gameRef || applyingRemote) return;
+  // include all keys + a timestamp so the node always exists, even for an empty game
+  const payload=Object.assign({names:['Ние','Вие'],target:151,rounds:[]}, state, {updated:Date.now()});
+  try{ gameRef.set(payload); }catch(e){}
+}
+
+function onGameValue(snap){
+  synced=true; setSyncLine();
+  const val=snap.val();
+  const hasGame = val && (val.rounds!==undefined || val.names!==undefined || val.target!=null);
+  if(hasGame){
+    applyingRemote=true;
+    state=Object.assign({names:['Ние','Вие'],target:151,rounds:[]}, val);
+    // Firebase may return arrays as objects or drop empty ones -> normalize
+    if(state.rounds && !Array.isArray(state.rounds)) state.rounds=Object.values(state.rounds);
+    if(!Array.isArray(state.rounds)) state.rounds=[];
+    if(state.names && !Array.isArray(state.names)) state.names=Object.values(state.names);
+    if(!Array.isArray(state.names) || state.names.length<2) state.names=['Ние','Вие'];
+    try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
+    render();
+    applyingRemote=false;
+  }else{
+    pushRemote(); // truly empty node -> publish current local state
+  }
+}
+function onGameErr(){ synced=false; el('syncLine').innerHTML='грешка при синхр.'; }
+
+function attachGame(code){
+  if(!fbdb) return;
+  if(gameRef){ try{ gameRef.off(); }catch(e){} }
+  gameId=code;
+  try{ localStorage.setItem(GKEY, code); }catch(e){}
+  try{ const u=new URL(location.href); u.searchParams.set('game',code); history.replaceState(null,'',u.toString()); }catch(e){}
+  synced=false; setSyncLine();
+  gameRef=fbdb.ref('games/'+gameId);
+  gameRef.on('value', onGameValue, onGameErr);
+}
+function normCode(s){ return (s||'').trim().toLowerCase().replace(/[^a-z0-9]/g,'').slice(0,12); }
+
+function initSync(){
+  if(!fbdb){ setSyncLine(); return; }
+  attachGame(getGameId());
+}
+
+function shareText(){
+  let href=''; try{ href=location.href; }catch(e){}
+  const isHttp=/^https?:/i.test(href);
+  return isHttp ? href : ('Белот игра — код: '+gameId);
+}
+el('shareBtn').addEventListener('click', ()=>{
+  if(!fbdb){ el('syncLine').innerHTML='синхр. недостъпна (хостни файла)'; return; }
+  el('joinCurrent').textContent = gameId || '—';
+  el('joinInput').value='';
+  el('joinBg').classList.add('show');
+});
+el('joinClose').addEventListener('click', ()=>el('joinBg').classList.remove('show'));
+el('joinBg').addEventListener('click', e=>{ if(e.target===el('joinBg')) el('joinBg').classList.remove('show'); });
+el('joinCopy').addEventListener('click', async ()=>{
+  const txt=shareText();
+  try{
+    await navigator.clipboard.writeText(txt);
+    const b=el('joinCopy'); const t=b.textContent; b.textContent='Копирано ✓';
+    setTimeout(()=>b.textContent=t, 1600);
+  }catch(e){
+    el('joinCurrent').textContent = gameId; el('joinInput').value=txt;
+  }
+});
+el('joinGo').addEventListener('click', ()=>{
+  const code=normCode(el('joinInput').value);
+  if(!code){ el('joinInput').focus(); return; }
+  attachGame(code);
+  el('joinCurrent').textContent=code;
+  el('joinBg').classList.remove('show');
+});
+el('joinInput').addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); el('joinGo').click(); } });
+el('joinNew').addEventListener('click', ()=>{
+  const code=Math.random().toString(36).slice(2,8);
+  state.rounds=[];                 // fresh game
+  try{ store.save(state); }catch(e){}
+  render();
+  attachGame(code);
+  pushRemote();                    // register the new code in the DB right away
+  el('joinCurrent').textContent=code;
+  el('joinBg').classList.remove('show');
+});
+
+/* ---------- boot ---------- */
+(async ()=>{
+  const saved=await store.load();
+  if(saved && Array.isArray(saved.names) && Array.isArray(saved.rounds)){
+    state=Object.assign(state, saved);
+  }
+  render();
+  initSync();
+})();
+</script>
+</body>
+</html>
