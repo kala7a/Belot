@@ -88,12 +88,17 @@
   .card.red::before,.card.red::after{color:var(--red);}
   .card.black::before,.card.black::after{color:var(--ink);}
 
+  /* tappable name field: needs a real touch target (>=44px) and enough of a
+     background to read as editable rather than as a plain label */
   .name{
-    display:block;width:100%;text-align:center;border:none;background:transparent;
+    display:block;width:100%;text-align:center;border:none;
+    background:rgba(28,27,25,.055);
     font-family:'Inter',sans-serif;font-weight:600;font-size:15px;color:var(--ink);
-    padding:2px 4px 4px;border-radius:6px;
+    padding:12px 8px;min-height:44px;margin-top:8px;border-radius:9px;
+    cursor:text;transition:background .15s;
   }
-  .name:focus{outline:2px solid var(--brass);outline-offset:1px;}
+  .name:hover{background:rgba(28,27,25,.1);}
+  .name:focus{outline:2px solid var(--brass);outline-offset:1px;background:#fff;}
   .score{
     font-family:'Oswald',sans-serif;font-weight:700;
     text-align:center;line-height:.92;font-size:70px;
