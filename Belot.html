@@ -119,6 +119,26 @@
   }
   .card.win .ribbon{display:block;}
 
+  /* Series (games won across the match) */
+  .series{
+    display:flex;align-items:center;gap:10px;
+    margin-top:12px;padding:9px 12px;
+    background:rgba(0,0,0,.16);border:1px solid var(--felt-line);border-radius:12px;
+  }
+  .series-lbl{font-size:12px;color:var(--muted);font-weight:500;}
+  .series-score{
+    margin-left:auto;font-family:'Oswald',sans-serif;font-size:19px;
+    color:var(--ivory);font-variant-numeric:tabular-nums;letter-spacing:.02em;
+  }
+  .series-score i{color:var(--muted);font-style:normal;margin:0 3px;}
+  .series-btn{
+    font-family:'Oswald',sans-serif;font-weight:500;font-size:12px;
+    letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;
+    color:var(--ivory);background:rgba(0,0,0,.22);border:1px solid var(--felt-line);
+    border-radius:999px;padding:7px 12px;cursor:pointer;
+  }
+  .series-btn:active{background:rgba(0,0,0,.34);}
+
   /* Entry */
   .entry{
     margin-top:18px;background:rgba(0,0,0,.16);border:1px solid var(--felt-line);
@@ -322,6 +342,12 @@
     </div>
   </div>
 
+  <div class="series">
+    <span class="series-lbl">Спечелени игри</span>
+    <span class="series-score"><b id="winsA">0</b><i>:</i><b id="winsB">0</b></span>
+    <button class="series-btn" id="formatBtn">2 от 3</button>
+  </div>
+
   <section class="entry" id="entry">
     <div class="mode-toggle" id="modeToggle">
       <button class="mt-btn active" data-mode="quick">Бързо</button>
@@ -463,6 +489,21 @@
   </div>
 </div>
 
+<!-- Match format sheet -->
+<div class="sheet-bg" id="fmtBg">
+  <div class="sheet">
+    <h3>Мачът е до колко спечелени игри?</h3>
+    <div class="chips" id="fmtChips">
+      <button class="chip" data-b="1">Една игра</button>
+      <button class="chip" data-b="3">2 от 3</button>
+      <button class="chip" data-b="5">3 от 5</button>
+      <button class="chip" data-b="7">4 от 7</button>
+    </div>
+    <button class="sheet-del" id="fmtReset" style="color:var(--felt);border-color:var(--ivory-2);">Нулирай спечелените игри</button>
+    <button class="close" id="fmtClose">Готово</button>
+  </div>
+</div>
+
 <!-- Edit round sheet -->
 <div class="sheet-bg" id="editBg">
   <div class="sheet">
@@ -527,7 +568,8 @@ const store={
 };
 
 /* ---------- state ---------- */
-let state={ names:['Ние','Вие'], target:151, rounds:[] };
+let state={ names:['Ние','Вие'], target:151, rounds:[], wins:[0,0], bestOf:3 };
+const DEFAULTS=()=>({ names:['Ние','Вие'], target:151, rounds:[], wins:[0,0], bestOf:3 });
 
 /* ---------- elements ---------- */
 const el=id=>document.getElementById(id);
@@ -544,6 +586,21 @@ const entry=el('entry');
 
 /* ---------- helpers ---------- */
 const totals=()=>state.rounds.reduce((t,r)=>[t[0]+r[0],t[1]+r[1]],[0,0]);
+
+/* ---------- match series ---------- */
+// bestOf 1/3/5/7 -> a team needs 1/2/3/4 game wins to take the match
+const needWins=()=>Math.floor(state.bestOf/2)+1;
+const fmtLabel=n=> n<=1 ? 'Една игра' : (Math.floor(n/2)+1)+' от '+n;
+// winner of the current game: reached the target with a clear lead (a tie plays on)
+function gameWinner(){
+  const [a,b]=totals();
+  return (a!==b && (a>=state.target || b>=state.target)) ? (a>b?0:1) : -1;
+}
+// winner of the whole match, once a team has banked enough game wins
+function matchWinner(){
+  const n=needWins();
+  return state.wins[0]>=n ? 0 : (state.wins[1]>=n ? 1 : -1);
+}
 
 function render(){
   // never write into a name field while it is being edited — that would undo
@@ -569,17 +626,33 @@ function render(){
   leadA.textContent = a>b ? '▲ води' : '';
   leadB.textContent = b>a ? '▲ води' : '';
 
-  // win detection: someone reached target with a clear lead (a tie keeps playing)
-  const winnerIdx = (a!==b && (a>=state.target || b>=state.target)) ? (a>b?0:1) : -1;
-  cardA.classList.toggle('win', winnerIdx===0);
-  cardB.classList.toggle('win', winnerIdx===1);
-  if(winnerIdx!==-1){
+  // games won so far in the match
+  el('winsA').textContent=state.wins[0];
+  el('winsB').textContent=state.wins[1];
+  el('formatBtn').textContent=fmtLabel(state.bestOf);
+
+  // win detection: a finished game, or a finished match once the wins are banked
+  const winnerIdx=gameWinner(), matchIdx=matchWinner();
+  cardA.classList.toggle('win', winnerIdx===0 || matchIdx===0);
+  cardB.classList.toggle('win', winnerIdx===1 || matchIdx===1);
+  const newFromWin=el('newFromWin');
+  if(matchIdx!==-1){
     winbox.classList.add('show');
     entry.style.display='none';
-    winText.textContent = state.names[winnerIdx].toUpperCase()+' печели!';
+    winText.textContent = state.names[matchIdx].toUpperCase()+' печели мача '+state.wins[matchIdx]+':'+state.wins[1-matchIdx]+'!';
+    newFromWin.textContent='Нов мач';
+    winbox.dataset.mode='match';
+  }else if(winnerIdx!==-1){
+    winbox.classList.add('show');
+    entry.style.display='none';
+    winText.textContent = state.names[winnerIdx].toUpperCase()+' печели играта!';
+    // one more win than currently banked, since this game is not tallied yet
+    newFromWin.textContent = state.wins[winnerIdx]+1>=needWins() ? 'Вземи мача' : 'Следваща игра';
+    winbox.dataset.mode='game';
   }else{
     winbox.classList.remove('show');
     entry.style.display='';
+    winbox.dataset.mode='';
   }
 
   // history (newest first)
@@ -617,8 +690,21 @@ function undo(){
   state.rounds.pop();
   render(); persist();
 }
+// clears the scoreboard only — the match tally is deliberately untouched, since
+// this is "we misrecorded, start the game over", not "that game counted"
 function newGame(){
   state.rounds=[];
+  render(); persist();
+}
+// bank the finished game to the winner and deal the next one
+function nextGame(){
+  const w=gameWinner();
+  if(w!==-1) state.wins[w]++;
+  state.rounds=[];
+  render(); persist();
+}
+function newMatch(){
+  state.wins=[0,0]; state.rounds=[];
   render(); persist();
 }
 
@@ -638,7 +724,32 @@ resetBtn.addEventListener('click', ()=>{
   clearTimeout(resetTimer); resetArmed=false; resetBtn.textContent='Нова игра';
   newGame();
 });
-el('newFromWin').addEventListener('click', newGame);
+el('newFromWin').addEventListener('click', ()=>{
+  if(el('winbox').dataset.mode==='match') newMatch(); else nextGame();
+});
+
+/* ---------- match format sheet ---------- */
+const fmtBg=el('fmtBg'), fmtChips=el('fmtChips');
+function markFmt(){ [...fmtChips.children].forEach(c=>c.classList.toggle('sel', +c.dataset.b===state.bestOf)); }
+el('formatBtn').addEventListener('click', ()=>{ markFmt(); fmtBg.classList.add('show'); });
+el('fmtClose').addEventListener('click', ()=>fmtBg.classList.remove('show'));
+fmtBg.addEventListener('click', e=>{ if(e.target===fmtBg) fmtBg.classList.remove('show'); });
+fmtChips.addEventListener('click', e=>{
+  const b=e.target.closest('.chip'); if(!b) return;
+  state.bestOf=+b.dataset.b; markFmt(); render(); persist();
+});
+let fmtResetArmed=false;
+const fmtResetBtn=el('fmtReset');
+function resetFmtBtn(){ fmtResetArmed=false; fmtResetBtn.textContent='Нулирай спечелените игри'; fmtResetBtn.classList.remove('armed'); }
+fmtResetBtn.addEventListener('click', ()=>{
+  if(!fmtResetArmed){
+    fmtResetArmed=true;
+    fmtResetBtn.textContent='Докосни пак за нулиране';
+    fmtResetBtn.classList.add('armed');
+    return;
+  }
+  resetFmtBtn(); newMatch(); fmtBg.classList.remove('show');
+});
 
 inA.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();inB.focus();}});
 inB.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addRound();inA.focus();}});
@@ -901,7 +1012,7 @@ function setSyncLine(){
 function pushRemote(){
   if(!gameRef || applyingRemote) return;
   // include all keys + a timestamp so the node always exists, even for an empty game
-  const payload=Object.assign({names:['Ние','Вие'],target:151,rounds:[]}, state, {updated:Date.now()});
+  const payload=Object.assign(DEFAULTS(), state, {updated:Date.now()});
   // note: an empty rounds list is stored as *no* rounds key at all — the database
   // cannot hold an empty array — so security rules must not require that key
   try{
@@ -919,12 +1030,17 @@ function onGameValue(snap){
   const hasGame = val && (val.rounds!==undefined || val.names!==undefined || val.target!=null);
   if(hasGame){
     applyingRemote=true;
-    state=Object.assign({names:['Ние','Вие'],target:151,rounds:[]}, val);
+    state=Object.assign(DEFAULTS(), val);
     // Firebase may return arrays as objects or drop empty ones -> normalize
     if(state.rounds && !Array.isArray(state.rounds)) state.rounds=Object.values(state.rounds);
     if(!Array.isArray(state.rounds)) state.rounds=[];
     if(state.names && !Array.isArray(state.names)) state.names=Object.values(state.names);
     if(!Array.isArray(state.names) || state.names.length<2) state.names=['Ние','Вие'];
+    // older games predate the tally and have no wins key at all
+    if(state.wins && !Array.isArray(state.wins)) state.wins=Object.values(state.wins);
+    if(!Array.isArray(state.wins) || state.wins.length<2) state.wins=[0,0];
+    state.wins=[+state.wins[0]||0, +state.wins[1]||0];
+    if(!(+state.bestOf>0)) state.bestOf=3;
     try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
     render();
     applyingRemote=false;
@@ -986,6 +1102,7 @@ el('joinNew').addEventListener('click', ()=>{
   const code=Math.random().toString(36).slice(2,8);
   state.rounds=[];                 // fresh game
   state.names=['Ние','Вие'];       // a new code means a new table, so new players too
+  state.wins=[0,0];                // ...and a fresh match tally
   try{ store.save(state); }catch(e){}
   render();
   attachGame(code);
@@ -999,6 +1116,9 @@ el('joinNew').addEventListener('click', ()=>{
   const saved=await store.load();
   if(saved && Array.isArray(saved.names) && Array.isArray(saved.rounds)){
     state=Object.assign(state, saved);
+    // games saved before the match tally existed have no wins/bestOf
+    if(!Array.isArray(state.wins) || state.wins.length<2) state.wins=[0,0];
+    if(!(+state.bestOf>0)) state.bestOf=3;
   }
   render();
   initSync();
