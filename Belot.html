@@ -902,8 +902,16 @@ function pushRemote(){
   if(!gameRef || applyingRemote) return;
   // include all keys + a timestamp so the node always exists, even for an empty game
   const payload=Object.assign({names:['Ние','Вие'],target:151,rounds:[]}, state, {updated:Date.now()});
-  try{ gameRef.set(payload); }catch(e){}
+  // note: an empty rounds list is stored as *no* rounds key at all — the database
+  // cannot hold an empty array — so security rules must not require that key
+  try{
+    const p=gameRef.set(payload);
+    if(p && p.catch) p.catch(onWriteErr);   // set() rejects asynchronously, so try/catch alone misses it
+  }catch(e){ onWriteErr(e); }
 }
+// a rejected write silently rolls back to the previous value, which looks like
+// buttons doing nothing — say so instead of failing invisibly
+function onWriteErr(){ synced=false; const l=el('syncLine'); if(l) l.innerHTML='промяната не е записана · виж правилата на базата'; }
 
 function onGameValue(snap){
   synced=true; setSyncLine();
