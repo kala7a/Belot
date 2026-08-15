@@ -812,10 +812,19 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 function persist(){ store.save(state); pushRemote(); }
 
 /* ---------- actions ---------- */
-let quickCapot=0;   // 0 none / 1 team A / 2 team B, for the hand being entered
+let quickCapot=0;         // 0 none / 1 team A / 2 team B, for the hand being entered
+let quickCapotManual=false;   // once the marker is set by hand, guessing stops
 function setQuickCapot(v){
   quickCapot=v;
   [...el('qCapotPick').children].forEach(x=>x.classList.toggle('sel', +x.dataset.c===v));
+}
+// A team on zero took no tricks at all, which is a capot for the other side.
+// It is only a guess: with a declaration the capot team still scores, so the
+// marker stays editable and a hand-picked value is never overwritten.
+function guessCapot(a,b){ return a>0&&b===0 ? 1 : (b>0&&a===0 ? 2 : 0); }
+function autoQuickCapot(){
+  if(quickCapotManual || !state.noCapotOut) return;
+  setQuickCapot(guessCapot(parseInt(inA.value,10)||0, parseInt(inB.value,10)||0));
 }
 function addRound(){
   const a=Math.max(0, parseInt(inA.value,10)||0);
@@ -823,7 +832,7 @@ function addRound(){
   if(a===0 && b===0){ inA.focus(); return; }
   state.rounds.push([a,b,quickCapot]);
   inA.value=''; inB.value='';
-  setQuickCapot(0);
+  quickCapotManual=false; setQuickCapot(0);
   render(); persist();
 }
 function undo(){
@@ -853,8 +862,10 @@ function newMatch(){
 el('addBtn').addEventListener('click', addRound);
 el('qCapotPick').addEventListener('click', e=>{
   const b=e.target.closest('button'); if(!b) return;
+  quickCapotManual=true;          // the player has spoken; stop guessing
   setQuickCapot(+b.dataset.c);
 });
+[inA,inB].forEach(i=>i.addEventListener('input', autoQuickCapot));
 el('undoBtn').addEventListener('click', undo);
 let resetArmed=false, resetTimer=null;
 const resetBtn=el('resetBtn');
@@ -965,21 +976,29 @@ function openEdit(i){
   editA.value=r[0]||0;
   editB.value=r[1]||0;
   setEditCapot(r[2]||0);
+  editCapotManual=(r[2]||0)!==0;
   editBg.classList.add('show');
   resetDelBtn();
   setTimeout(()=>{ editA.focus(); editA.select(); },50);
 }
 function closeEdit(){ editBg.classList.remove('show'); editIndex=null; }
 
-let editCapot=0;
+let editCapot=0, editCapotManual=false;
 function setEditCapot(v){
   editCapot=v;
   [...el('editCapotPick').children].forEach(x=>x.classList.toggle('sel', +x.dataset.c===v));
 }
 el('editCapotPick').addEventListener('click', e=>{
   const b=e.target.closest('button'); if(!b) return;
+  editCapotManual=true;
   setEditCapot(+b.dataset.c);
 });
+// same guess as the quick pane, but a mark the round already carries counts as
+// hand-picked, so correcting a score never silently drops it
+[editA,editB].forEach(i=>i.addEventListener('input', ()=>{
+  if(editCapotManual || !state.noCapotOut) return;
+  setEditCapot(guessCapot(parseInt(editA.value,10)||0, parseInt(editB.value,10)||0));
+}));
 el('editSave').addEventListener('click', ()=>{
   if(editIndex===null) return;
   const a=Math.max(0, parseInt(editA.value,10)||0);
