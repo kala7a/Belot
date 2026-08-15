@@ -139,6 +139,44 @@
   }
   .series-btn:active{background:rgba(0,0,0,.34);}
 
+  .rule-note{
+    margin-top:10px;padding:10px 12px;border-radius:12px;
+    background:rgba(203,161,75,.14);border:1px solid rgba(203,161,75,.4);
+    color:var(--brass);font-size:12px;line-height:1.45;text-align:center;
+  }
+
+  /* Capot marker in quick mode / round editor */
+  .capot-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:12px;}
+  .capot-row > span{font-size:12px;color:var(--muted);font-weight:500;}
+  .edit-inputs + .capot-row > span{color:var(--ink-soft);}
+  .capot-pick{display:flex;gap:5px;}
+  .capot-pick button{
+    border:1px solid var(--felt-line);background:rgba(0,0,0,.14);color:var(--ivory);cursor:pointer;
+    font-family:'Oswald',sans-serif;font-size:13px;padding:7px 11px;border-radius:9px;min-width:40px;
+    max-width:96px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .capot-pick button.sel{background:var(--brass);color:var(--felt);border-color:var(--brass);font-weight:600;}
+  .sheet .capot-pick button{border-color:var(--ivory-2);background:#fff;color:var(--ink);}
+  .sheet .capot-pick button.sel{background:var(--felt);color:var(--ivory);border-color:var(--felt);}
+
+  /* Rule toggles */
+  .rule-row{
+    display:flex;align-items:center;gap:10px;margin-top:12px;
+    padding:11px 12px;border:1px solid var(--ivory-2);border-radius:12px;background:#fff;
+  }
+  .rule-row b{display:block;font-family:'Inter',sans-serif;font-weight:600;font-size:13px;color:var(--ink);}
+  .rule-row small{display:block;font-size:11px;color:var(--ink-soft);line-height:1.35;margin-top:2px;}
+  .rule-row .sw{
+    margin-left:auto;flex:0 0 auto;width:46px;height:28px;border-radius:999px;border:none;
+    background:var(--ivory-2);cursor:pointer;position:relative;transition:background .15s;
+  }
+  .rule-row .sw::after{
+    content:'';position:absolute;top:3px;left:3px;width:22px;height:22px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .15s;
+  }
+  .rule-row .sw.on{background:var(--felt);}
+  .rule-row .sw.on::after{transform:translateX(18px);}
+
   /* Entry */
   .entry{
     margin-top:18px;background:rgba(0,0,0,.16);border:1px solid var(--felt-line);
@@ -168,6 +206,11 @@
   }
   .add:active{transform:translateY(1px);background:var(--red-bright);}
   .hint{margin:9px 2px 0;font-size:11px;color:var(--muted);text-align:center;line-height:1.4;}
+  .give-up{
+    display:block;width:100%;margin-top:14px;border:none;background:transparent;
+    color:var(--muted);font-family:'Inter',sans-serif;font-weight:500;font-size:12px;
+    padding:8px;cursor:pointer;text-decoration:underline;
+  }
 
   /* Mode toggle + detailed panel */
   .mode-toggle{display:flex;gap:4px;background:rgba(0,0,0,.22);border-radius:999px;padding:4px;margin-bottom:14px;}
@@ -276,6 +319,7 @@
     background:var(--ivory);color:var(--ink);width:100%;max-width:460px;
     border-radius:18px 18px 0 0;padding:18px 16px calc(18px + env(safe-area-inset-bottom));
   }
+  .sheet-sub{margin:-8px 2px 10px;font-size:12px;color:var(--ink-soft);font-weight:500;}
   .sheet h3{margin:2px 0 14px;font-family:'Oswald',sans-serif;font-weight:600;letter-spacing:.04em;text-transform:uppercase;font-size:16px;}
   .chips{display:flex;flex-wrap:wrap;gap:8px;}
   .chip{
@@ -348,6 +392,8 @@
     <button class="series-btn" id="formatBtn">2 от 3</button>
   </div>
 
+  <div class="rule-note" id="ruleNote" style="display:none;"></div>
+
   <section class="entry" id="entry">
     <div class="mode-toggle" id="modeToggle">
       <button class="mt-btn active" data-mode="quick">Бързо</button>
@@ -364,6 +410,14 @@
         <div class="field">
           <label id="labelB">Вие</label>
           <input id="inB" inputmode="numeric" pattern="[0-9]*" placeholder="0">
+        </div>
+      </div>
+      <div class="capot-row" id="qCapotRow">
+        <span>Капо (всички ръце)</span>
+        <div class="capot-pick" id="qCapotPick">
+          <button data-c="0" class="sel">Няма</button>
+          <button data-c="1" id="qCapA">Ние</button>
+          <button data-c="2" id="qCapB">Вие</button>
         </div>
       </div>
       <button class="add" id="addBtn">Добави точките</button>
@@ -450,6 +504,8 @@
       <button class="add" id="addDetailBtn">Добави ръката</button>
       <p class="hint">Финалните числа може да коригираш ръчно според вашите правила за закръгляне и „вътре“.</p>
     </div>
+
+    <button class="give-up" id="giveUpBtn">Отбор се предава</button>
   </section>
 
   <div class="winbox" id="winbox">
@@ -474,7 +530,8 @@
 <!-- Target sheet -->
 <div class="sheet-bg" id="sheetBg">
   <div class="sheet">
-    <h3>Игра до колко точки?</h3>
+    <h3>Правила на играта</h3>
+    <p class="sheet-sub">Игра до колко точки?</p>
     <div class="chips" id="chips">
       <button class="chip" data-t="101">101</button>
       <button class="chip" data-t="151">151</button>
@@ -485,6 +542,22 @@
       <input id="customTarget" inputmode="numeric" pattern="[0-9]*" placeholder="Друго число">
       <button class="chip" id="customSet" style="flex:0 0 auto;">Задай</button>
     </div>
+
+    <div class="rule-row">
+      <div>
+        <b>С капо не се излиза</b>
+        <small>Ръка с капо не завършва играта — играе се още една.</small>
+      </div>
+      <button class="sw" id="swCapot" role="switch" aria-label="С капо не се излиза"></button>
+    </div>
+    <div class="rule-row">
+      <div>
+        <b>Излиза се само със спечелена ръка</b>
+        <small>За да излезе, отборът трябва да е взел повече точки в последната ръка.</small>
+      </div>
+      <button class="sw" id="swMustWin" role="switch" aria-label="Излиза се само със спечелена ръка"></button>
+    </div>
+
     <button class="close" id="sheetClose">Готово</button>
   </div>
 </div>
@@ -518,9 +591,31 @@
         <input id="editB" inputmode="numeric" pattern="[0-9]*" placeholder="0">
       </div>
     </div>
+    <div class="capot-row" id="editCapotRow">
+      <span>Капо</span>
+      <div class="capot-pick" id="editCapotPick">
+        <button data-c="0" class="sel">Няма</button>
+        <button data-c="1" id="editCapA">Ние</button>
+        <button data-c="2" id="editCapB">Вие</button>
+      </div>
+    </div>
     <button class="close" id="editSave">Запази промените</button>
     <button class="sheet-del" id="editDelete">Изтрий тази ръка</button>
     <button class="sheet-cancel" id="editCancel">Отказ</button>
+  </div>
+</div>
+
+<!-- Give up sheet -->
+<div class="sheet-bg" id="giveUpBg">
+  <div class="sheet">
+    <h3>Кой отбор се предава?</h3>
+    <p style="margin:0 0 12px;font-size:13px;color:var(--ink-soft);line-height:1.45;">
+      Играта се зачита на другия отбор и влиза в спечелените игри.</p>
+    <div class="chips" id="giveUpPick">
+      <button class="chip" data-g="0" id="giveUpA">Ние</button>
+      <button class="chip" data-g="1" id="giveUpB">Вие</button>
+    </div>
+    <button class="sheet-cancel" id="giveUpCancel">Отказ</button>
   </div>
 </div>
 
@@ -568,8 +663,13 @@ const store={
 };
 
 /* ---------- state ---------- */
-let state={ names:['Ние','Вие'], target:151, rounds:[], wins:[0,0], bestOf:3 };
-const DEFAULTS=()=>({ names:['Ние','Вие'], target:151, rounds:[], wins:[0,0], bestOf:3 });
+// a round is [pointsA, pointsB, capot] where capot is 0 none / 1 team A / 2 team B.
+// rounds recorded before the capot rule existed are plain [a,b] pairs, so the
+// third slot is simply absent and reads as 0.
+let state={ names:['Ние','Вие'], target:151, rounds:[], wins:[0,0], bestOf:3,
+            noCapotOut:true, mustWinOut:false };
+const DEFAULTS=()=>({ names:['Ние','Вие'], target:151, rounds:[], wins:[0,0], bestOf:3,
+                      noCapotOut:true, mustWinOut:false });
 
 /* ---------- elements ---------- */
 const el=id=>document.getElementById(id);
@@ -591,10 +691,24 @@ const totals=()=>state.rounds.reduce((t,r)=>[t[0]+r[0],t[1]+r[1]],[0,0]);
 // bestOf 1/3/5/7 -> a team needs 1/2/3/4 game wins to take the match
 const needWins=()=>Math.floor(state.bestOf/2)+1;
 const fmtLabel=n=> n<=1 ? 'Една игра' : (Math.floor(n/2)+1)+' от '+n;
+// which team made capot in a round: -1 none, 0 team A, 1 team B
+const capotOf=r=> r && r[2] ? r[2]-1 : -1;
+
+// Why the leader is not allowed to go out yet, or '' when nothing blocks them.
+// Both are optional table rules, checked against the hand that crossed the line.
+function outBlockedBy(lead){
+  const last=state.rounds[state.rounds.length-1];
+  if(!last) return '';
+  if(state.noCapotOut && capotOf(last)===lead) return 'capot';
+  if(state.mustWinOut && !(last[lead]>last[1-lead])) return 'lost';
+  return '';
+}
 // winner of the current game: reached the target with a clear lead (a tie plays on)
 function gameWinner(){
   const [a,b]=totals();
-  return (a!==b && (a>=state.target || b>=state.target)) ? (a>b?0:1) : -1;
+  if(a===b || !(a>=state.target || b>=state.target)) return -1;
+  const lead=a>b?0:1;
+  return outBlockedBy(lead) ? -1 : lead;
 }
 // winner of the whole match, once a team has banked enough game wins
 function matchWinner(){
@@ -630,6 +744,27 @@ function render(){
   el('winsA').textContent=state.wins[0];
   el('winsB').textContent=state.wins[1];
   el('formatBtn').textContent=fmtLabel(state.bestOf);
+
+  // table rules
+  setTxt('qCapA',state.names[0]); setTxt('qCapB',state.names[1]);
+  setTxt('editCapA',state.names[0]); setTxt('editCapB',state.names[1]);
+  setTxt('giveUpA',state.names[0]); setTxt('giveUpB',state.names[1]);
+  el('swCapot').classList.toggle('on', !!state.noCapotOut);
+  el('swMustWin').classList.toggle('on', !!state.mustWinOut);
+  // the capot marker is only worth asking for when a rule depends on it
+  const wantCapot = !!state.noCapotOut;
+  el('qCapotRow').style.display = wantCapot?'':'none';
+  el('editCapotRow').style.display = wantCapot?'':'none';
+
+  // say why a team that crossed the line still cannot go out
+  let note='';
+  if(a!==b && (a>=state.target || b>=state.target)){
+    const lead=a>b?0:1, why=outBlockedBy(lead);
+    if(why==='capot') note='Има мината граница, но с капо не се излиза — играе се още една ръка.';
+    else if(why==='lost') note='Има мината граница, но не се излиза без спечелена ръка — играе се още една.';
+  }
+  const rn=el('ruleNote');
+  rn.textContent=note; rn.style.display = note?'':'none';
 
   // win detection: a finished game, or a finished match once the wins are banked
   const winnerIdx=gameWinner(), matchIdx=matchWinner();
@@ -677,12 +812,18 @@ function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':
 function persist(){ store.save(state); pushRemote(); }
 
 /* ---------- actions ---------- */
+let quickCapot=0;   // 0 none / 1 team A / 2 team B, for the hand being entered
+function setQuickCapot(v){
+  quickCapot=v;
+  [...el('qCapotPick').children].forEach(x=>x.classList.toggle('sel', +x.dataset.c===v));
+}
 function addRound(){
   const a=Math.max(0, parseInt(inA.value,10)||0);
   const b=Math.max(0, parseInt(inB.value,10)||0);
   if(a===0 && b===0){ inA.focus(); return; }
-  state.rounds.push([a,b]);
+  state.rounds.push([a,b,quickCapot]);
   inA.value=''; inB.value='';
+  setQuickCapot(0);
   render(); persist();
 }
 function undo(){
@@ -710,6 +851,10 @@ function newMatch(){
 
 /* ---------- events ---------- */
 el('addBtn').addEventListener('click', addRound);
+el('qCapotPick').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  setQuickCapot(+b.dataset.c);
+});
 el('undoBtn').addEventListener('click', undo);
 let resetArmed=false, resetTimer=null;
 const resetBtn=el('resetBtn');
@@ -777,6 +922,31 @@ chips.addEventListener('click', e=>{
   const b=e.target.closest('.chip'); if(!b) return;
   state.target=+b.dataset.t; markChips(); render(); persist();
 });
+/* ---------- table rules ---------- */
+el('swCapot').addEventListener('click', ()=>{
+  state.noCapotOut=!state.noCapotOut;
+  if(!state.noCapotOut) setQuickCapot(0);   // marker hidden -> do not keep a stale one
+  render(); persist();
+});
+el('swMustWin').addEventListener('click', ()=>{
+  state.mustWinOut=!state.mustWinOut;
+  render(); persist();
+});
+
+/* ---------- giving up ---------- */
+const giveUpBg=el('giveUpBg');
+el('giveUpBtn').addEventListener('click', ()=>giveUpBg.classList.add('show'));
+el('giveUpCancel').addEventListener('click', ()=>giveUpBg.classList.remove('show'));
+giveUpBg.addEventListener('click', e=>{ if(e.target===giveUpBg) giveUpBg.classList.remove('show'); });
+el('giveUpPick').addEventListener('click', e=>{
+  const b=e.target.closest('.chip'); if(!b) return;
+  const loser=+b.dataset.g;
+  state.wins[1-loser]++;          // the game goes to the other team
+  state.rounds=[];
+  giveUpBg.classList.remove('show');
+  render(); persist();
+});
+
 el('customSet').addEventListener('click', ()=>{
   const v=parseInt(el('customTarget').value,10);
   if(v&&v>0){ state.target=v; el('customTarget').value=''; markChips(); render(); persist(); sheetBg.classList.remove('show'); }
@@ -794,17 +964,27 @@ function openEdit(i){
   el('editLabelB').textContent=state.names[1];
   editA.value=r[0]||0;
   editB.value=r[1]||0;
+  setEditCapot(r[2]||0);
   editBg.classList.add('show');
   resetDelBtn();
   setTimeout(()=>{ editA.focus(); editA.select(); },50);
 }
 function closeEdit(){ editBg.classList.remove('show'); editIndex=null; }
 
+let editCapot=0;
+function setEditCapot(v){
+  editCapot=v;
+  [...el('editCapotPick').children].forEach(x=>x.classList.toggle('sel', +x.dataset.c===v));
+}
+el('editCapotPick').addEventListener('click', e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  setEditCapot(+b.dataset.c);
+});
 el('editSave').addEventListener('click', ()=>{
   if(editIndex===null) return;
   const a=Math.max(0, parseInt(editA.value,10)||0);
   const b=Math.max(0, parseInt(editB.value,10)||0);
-  state.rounds[editIndex]=[a,b];
+  state.rounds[editIndex]=[a,b,editCapot];
   closeEdit(); render(); persist();
 });
 let delArmed=false;
@@ -961,7 +1141,8 @@ el('addDetailBtn').addEventListener('click', ()=>{
   const a=Math.max(0, parseInt(finalA.value,10)||0);
   const b=Math.max(0, parseInt(finalB.value,10)||0);
   if(a===0 && b===0){ dCardA.focus(); return; }
-  state.rounds.push([a,b]);
+  // the detailed pane already knows who took every trick
+  state.rounds.push([a,b, capot==='A'?1:(capot==='B'?2:0)]);
   // reset detailed inputs for next hand
   dCardA.value=''; dCardB.value=''; ann={A:0,B:0}; updateAnnDisplay();
   finalA.value=''; finalB.value='';
@@ -1041,6 +1222,13 @@ function onGameValue(snap){
     if(!Array.isArray(state.wins) || state.wins.length<2) state.wins=[0,0];
     state.wins=[+state.wins[0]||0, +state.wins[1]||0];
     if(!(+state.bestOf>0)) state.bestOf=3;
+    // each round may itself come back as an object, and its capot slot is optional
+    state.rounds=state.rounds.map(r=>{
+      const p=Array.isArray(r)?r:Object.values(r||{});
+      return [+p[0]||0, +p[1]||0, +p[2]||0];
+    });
+    state.noCapotOut=!!state.noCapotOut;
+    state.mustWinOut=!!state.mustWinOut;
     try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){}
     render();
     applyingRemote=false;
